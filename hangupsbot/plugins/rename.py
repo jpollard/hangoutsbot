@@ -4,6 +4,8 @@
 import plugins
 import random
 import asyncio
+import appdirs
+import os
 
 def _initialise(bot):
     plugins.register_handler(_watch_rename, type='rename')
@@ -20,10 +22,14 @@ def _watch_rename(bot, event, command):
         return bot.coro_send_message(event.conv, _("{}").format(get_response()))
 
 def get_response():
-    responses = ["That's a shitty new name",
-                 "I like that name",
-                 "Change it back!",
-                 "Hahaha, that's funny.",
+    # open the file that contains the responses to the renaming of  the hangout.
+    dirs = appdirs.AppDirs('hangupsbot', 'hangupsbot')
+    rename_responses_path = os.path.join(dirs.user_data_dir, 'rename.txt')
+    renameFile = open(rename_responses_path)
+    responses = []
+    for line in renameFile:
+        responses.append(line)
 
-                 ]
+    renameFile.close()
+    
     return responses[random.randint(0, len(responses) - 1)]
