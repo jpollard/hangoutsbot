@@ -27,10 +27,11 @@
   "mentionerrors": true,
   "mentionquidproquo": false,
   "plugins": [
+    "botaliases",
     "default",
     "mentions",
+    "subscribe",
     "autoreply",
-    "cleverbot",
     "dnd",
     "starter",
     "remind"

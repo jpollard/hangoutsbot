@@ -1,4 +1,4 @@
-import asyncio, io, logging, os, re, time
+import asyncio, io, logging, os, re, time, tempfile
 
 import selenium
 
@@ -45,6 +45,7 @@ def _screencap(browser, url, filename):
     # read the resulting file into a byte array
     file_resource = yield from _open_file(filename)
     file_data = yield from loop.run_in_executor(None, file_resource.read)
+    file_resource.close()
     image_data = yield from loop.run_in_executor(None, io.BytesIO, file_data)
     yield from loop.run_in_executor(None, os.remove, filename)
 
@@ -103,31 +104,34 @@ def screenshot(bot, event, *args):
         if not re.match(r'^[a-zA-Z]+://', url):
             url = 'http://' + url
         filename = event.conv_id + "." + str(time.time()) +".png"
-        filepath = os.path.join(os.path.dirname(os.path.realpath(__file__)), filename)
+        filepath = tempfile.NamedTemporaryFile(prefix=event.conv_id, suffix=".png", delete=False).name
         logger.debug("temporary screenshot file: {}".format(filepath))
 
         try:
             browser = webdriver.PhantomJS(desired_capabilities=dcap,service_log_path=os.path.devnull)
         except selenium.common.exceptions.WebDriverException as e:
             yield from bot.coro_send_message(event.conv, "<i>phantomjs could not be started - is it installed?</i>".format(e))
+            _externals["running"] = False
             return
-        
+
         try:
             loop = asyncio.get_event_loop()
-            image_data = yield from _screencap(browser, url, filename)
-
+            image_data = yield from _screencap(browser, url, filepath)
         except Exception as e:
             yield from bot.coro_send_message(event.conv_id, "<i>error getting screenshot</i>")
             logger.exception("screencap failed".format(url))
+            _externals["running"] = False
             return
             
         try:
-            image_id = yield from bot._client.upload_image(image_data, filename=filename)
+            try:
+                image_id = yield from bot.call_shared('image_upload_raw', image_data, filename=filename)
+            except KeyError:
+                logger.warning('image plugin not loaded - using legacy code')
+                image_id = yield from bot._client.upload_image(image_data, filename=filename)
             yield from bot._client.sendchatmessage(event.conv.id_, None, image_id=image_id)
-
         except Exception as e:
             yield from bot.coro_send_message(event.conv_id, "<i>error uploading screenshot</i>")
             logger.exception("upload failed".format(url))
-
         finally:
             _externals["running"] = False

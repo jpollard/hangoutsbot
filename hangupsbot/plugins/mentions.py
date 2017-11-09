@@ -37,7 +37,7 @@ def _migrate_mention_config_to_memory(bot):
 
 def _handle_mention(bot, event, command):
     """handle @mention"""
-    occurrences = [word for word in event.text.split() if word.startswith('@')]
+    occurrences = [word for word in set(event.text.split()) if word.startswith('@')]
     if len(occurrences) > 0:
         for word in occurrences:
             # strip all special characters
@@ -106,7 +106,7 @@ def mention(bot, event, *args):
     """
     quidproquo: users can only @mention if they themselves are @mentionable (i.e. have a 1-on-1 with the bot)
     """
-    conv_1on1_initiator = yield from bot.get_1to1(event.user.id_.chat_id)
+    conv_1on1_initiator = yield from bot.get_1to1(event.user.id_.chat_id, context={ 'initiator_convid': event.conv_id })
     if bot.get_config_option("mentionquidproquo"):
         if conv_1on1_initiator:
             if initiator_has_dnd:
@@ -165,12 +165,12 @@ def mention(bot, event, *args):
                     if conv_1on1_initiator:
                         yield from bot.coro_send_message(
                             conv_1on1_initiator,
-                            _("You are not allowed to use @all in <b>{}</b>").format(
+                            _("You are not allowed to mention all users in <b>{}</b>").format(
                                 conversation_name))
                     if noisy_mention_test or bot.get_config_suboption(event.conv_id, 'mentionerrors'):
                         yield from bot.coro_send_message(
                             event.conv,
-                            _("<b>{}</b> blocked from using <i>@all</i>").format(
+                            _("<b>{}</b> blocked from mentioning all users").format(
                                 event.user.full_name))
                     return
                 else:
@@ -303,11 +303,10 @@ def mention(bot, event, *args):
                         success = False
                         try:
                             pb = PushBullet(pushbullet_config["api"])
-                            push = pb.push_note(
-                                _("{} mentioned you in {}").format(
-                                        source_name,
-                                        conversation_name),
-                                    event.text)
+                            push = pb.push_link(
+                                title = _("{} mentioned you in {}").format(source_name, conversation_name),
+                                    body=event.text,
+                                    url='https://hangouts.google.com/chat/{}'.format(event.conv.id_) )
                             if isinstance(push, tuple):
                                 # backward-compatibility for pushbullet library < 0.8.0
                                 success = push[0]
@@ -328,11 +327,15 @@ def mention(bot, event, *args):
 
             if alert_via_1on1:
                 """send alert with 1on1 conversation"""
-                conv_1on1 = yield from bot.get_1to1(u.id_.chat_id)
+                conv_1on1 = yield from bot.get_1to1(u.id_.chat_id, context={ 'initiator_convid': event.conv_id })
+                if username_lower == "all":
+                    message_mentioned = _("<b>{}</b> @mentioned ALL in <i>{}</i>:<br />{}")
+                else:
+                    message_mentioned = _("<b>{}</b> @mentioned you in <i>{}</i>:<br />{}")
                 if conv_1on1:
                     yield from bot.coro_send_message(
                         conv_1on1,
-                        _("<b>{}</b> @mentioned you in <i>{}</i>:<br />{}").format(
+                        message_mentioned.format(
                             source_name,
                             conversation_name,
                             event.text)) # prevent internal parser from removing <tags>
