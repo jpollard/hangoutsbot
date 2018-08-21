@@ -11,7 +11,7 @@ def timedelay(dly):
     """
     Extract the time delay for the reminder and return the number of seconds
     """
-    
+
     scale = dly[-1:].lower()
     if not scale.isdigit():
         time = dly[:-1]
@@ -66,9 +66,9 @@ def saveme(bot, event, dly, *args):
 
     /bot saveme <b>delay{s,m,h,d,w}</b> <i>Message</i>
     """
-    
+
     if not args:
-        yield from bot.coro_send_message(event.conv, _("Usage: /bot remindme <b>delay{s,m,h,d,w}</b> <i>Message</i>"))
+        yield from bot.coro_send_message(event.conv, _("Usage: /bot saveme <b>delay{s,m,h,d,w}</b> <i>Message</i>"))
         return
 
     try:
